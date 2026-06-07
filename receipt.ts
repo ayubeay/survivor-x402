@@ -16,11 +16,11 @@ export interface Receipt {
 }
 
 function loadKeypair() {
-  const raw = JSON.parse(fs.readFileSync(
-    process.env.AGENT_WALLET_KEYPAIR ||
-    `${process.env.HOME}/.config/solana/oobe-agent.json`,
-    "utf8"
-  ));
+  const keypairEnv = process.env.AGENT_WALLET_KEYPAIR;
+  if (keypairEnv && keypairEnv.trim().startsWith('[')) {
+    return nacl.sign.keyPair.fromSecretKey(Uint8Array.from(JSON.parse(keypairEnv)));
+  }
+  const raw = JSON.parse(fs.readFileSync(keypairEnv || `${process.env.HOME}/.config/solana/oobe-agent.json`, "utf8"));
   return nacl.sign.keyPair.fromSecretKey(Uint8Array.from(raw));
 }
 
@@ -33,15 +33,12 @@ export function signReceipt(
   const keypair = loadKeypair();
   const timestamp = Date.now();
   const receipt_id = crypto.randomUUID();
-
   const payload = Buffer.from(
     JSON.stringify({ mint, risk_score, gate_decision, timestamp, receipt_id }),
     "utf8"
   );
-
   const sig = nacl.sign.detached(payload, keypair.secretKey);
   const signature = Buffer.from(sig).toString("base64");
-
   return {
     receipt_id,
     mint,
