@@ -23,15 +23,18 @@ export async function runRiskScreen(mint: string): Promise<RiskResult> {
   const score = scoreRes.data;
 
   // Step 2: Ace Data GPT-4o-mini summary
-  const prompt = `You are a Solana token risk analyst. Given this risk data, write a 2-3 sentence plain-English summary for a trader deciding whether to trade this token. Be direct about the risks.
+  const riskLevel = score.risk_tier || score.riskLevel || 'UNKNOWN';
+  const gateDecision = score.score >= 65 ? "ALLOW" : score.score >= 40 ? "CHALLENGE" : "DENY";
+  const reasonCodes = (score.reasons || []).map((r: any) => r.code || r).join(', ') || 'none';
+  const prompt = `You are a Solana token risk analyst. Write a 2-3 sentence plain-English summary for a trader. Use only the data provided below. Do not say anything is undefined.
 
-Token mint: ${mint}
+Token: ${score.name || mint} (${score.symbol || 'UNKNOWN'})
 Risk score: ${score.score}/100 (higher = safer)
-Risk level: ${score.risk_level}
-Gate decision: ${score.gate_decision}
-Reasons: ${JSON.stringify(score.reasons || [])}
+Risk level: ${riskLevel}
+Gate decision: ${gateDecision}
+Risk signals: ${reasonCodes}
 
-Respond with only the summary, no preamble.`;
+Start with the token name, score, and classification. End with a direct trading observation. Respond with only the summary.`;
 
   let ai_summary = "AI analysis unavailable.";
   try {
