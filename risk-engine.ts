@@ -16,11 +16,27 @@ export interface RiskResult {
 
 export async function runRiskScreen(mint: string): Promise<RiskResult> {
   // Step 1: SURVIVOR score
-  const scoreRes = await axios.get(
-    `${process.env.SURVIVOR_API_URL}/score/${mint}?quick=true`,
-    
-  );
-  const score = scoreRes.data;
+  let score: any;
+  try {
+    const scoreRes = await axios.get(
+      `${process.env.SURVIVOR_API_URL}/score/${mint}?quick=true`,
+    );
+    score = scoreRes.data;
+  } catch (e: any) {
+    console.error("SURVIVOR oracle error:", e?.response?.status, e?.message);
+    // Safe fallback for unknown/fresh tokens
+    return {
+      mint,
+      risk_score: 15,
+      risk_level: "HIGH",
+      gate_decision: "DENY",
+      warnings: ["FRESH_TOKEN_DATA_UNAVAILABLE"],
+      token_name: undefined,
+      token_symbol: undefined,
+      ai_summary: "This token could not be scored by the SURVIVOR Oracle. Insufficient on-chain data — likely a very new or untracked token. Treat as high risk and proceed with extreme caution.",
+      raw_score_data: null,
+    };
+  }
 
   // Step 2: Ace Data GPT-4o-mini summary
   const riskLevel = score.risk_tier || score.riskLevel || 'UNKNOWN';
