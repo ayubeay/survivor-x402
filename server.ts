@@ -100,7 +100,6 @@ app.post("/risk-screen", async (req, res) => {
       amount_base_units: PRICE_BASE_UNITS,
       asset: USDC.address,
       network: x402.getNetwork(),
-      settled_at: new Date().toISOString(),
       facilitator: FACILITATOR,
     },
   });

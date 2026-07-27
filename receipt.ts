@@ -78,7 +78,6 @@ export interface SettlementEvidence {
   amount_base_units: string;
   asset: string;
   network: string;
-  settled_at: string;
   facilitator: string;
 }
 
