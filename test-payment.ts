@@ -158,7 +158,9 @@ async function main() {
     gate("12c charged exactly once", Math.abs(spent - 0.01) < 0.000001, `${spent.toFixed(6)} USDC`);
   } catch { console.log("could not read post-balance"); }
 
-  console.log("\nreceipt:\n" + JSON.stringify(body.receipt, null, 2));
+  fs.writeFileSync("/tmp/receipt.json", JSON.stringify(body.receipt, null, 2));
+  console.log("\nreceipt written to /tmp/receipt.json");
+  console.log(JSON.stringify(body.receipt, null, 2));
   summary();
 }
 
