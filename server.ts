@@ -46,6 +46,13 @@ app.post("/risk-screen", async (req, res) => {
     });
   }
 
+  // Payment verification not implemented. Fail closed rather than sign a receipt
+  // asserting a payment nobody verified.
+  return res.status(503).json({
+    error: "PAYMENT_VERIFICATION_UNAVAILABLE",
+    message: "Paid risk screening is offline while x402 settlement verification is implemented. Free preview remains at GET /quote/:mint."
+  });
+
   try {
     console.log(`[risk-screen] mint=${mint} payment_tx=${payment_tx}`);
 
