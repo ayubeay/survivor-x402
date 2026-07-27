@@ -1,7 +1,7 @@
 import express from "express";
 import * as dotenv from "dotenv";
 import { runRiskScreen } from "./risk-engine";
-import { signReceiptV2, signerPubkey, RECEIPT_SCHEMA, POLICY_VERSION } from "./receipt";
+import { signReceiptV2, signerPubkey, verifyReceipt, canonical, sha256, RECEIPT_SCHEMA, POLICY_VERSION } from "./receipt";
 import { X402PaymentHandler } from "x402-solana/server";
 dotenv.config();
 
@@ -40,6 +40,82 @@ const ROUTE = {
 };
 
 // Health check
+// Service index — what an agent or developer sees on arrival
+app.get("/", (req, res) => {
+  const base = PUBLIC_BASE_URL || "https://" + req.get("host");
+  res.json({
+    service: "SURVIVOR Pay-Per-Call Risk Agent",
+    description: "Solana token risk screening. Pay per call in USDC via x402 v2; receive a signed, independently verifiable receipt.",
+    protocol: { standard: "x402", version: 2, header: "PAYMENT-SIGNATURE", facilitator: FACILITATOR },
+    price: { amount_base_units: PRICE_BASE_UNITS, asset: USDC.address, decimals: USDC.decimals, human: PRICE_USDC + " USDC" },
+    network: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    gas: "sponsored by facilitator — payer needs USDC only, no SOL required",
+    endpoints: {
+      "GET /": "this index",
+      "GET /health": "liveness",
+      "GET /quote/:mint": "free preview — score only, no receipt, no payment",
+      "POST /risk-screen": "paid — returns full report + signed receipt (x402 v2)",
+      "GET /signer": "public signing identity for receipt verification",
+      "POST /verify": "verify any survivor.receipt.v2 — no auth, no payment",
+    },
+    how_to_pay: [
+      "POST /risk-screen with {mint} and no payment header",
+      "receive 402 with PAYMENT-REQUIRED header (base64 JSON) and body",
+      "sign the payment with any x402 v2 client (e.g. npm x402-solana)",
+      "retry with the PAYMENT-SIGNATURE header",
+    ],
+    receipt_schema: RECEIPT_SCHEMA,
+    agent_pda: "GTZNpoUacZrZU1PZfbzyyy34m1WizvUwE5aMfLXAf5hx",
+    source: "https://github.com/ayubeay/survivor-x402",
+  });
+});
+
+// Public receipt verification — anyone, no auth, no payment
+app.post("/verify", (req, res) => {
+  const receipt = req.body;
+  const checks: Record<string, boolean | string> = {};
+  const fail = (msg: string) => res.status(400).json({ valid: false, error: msg });
+
+  if (!receipt || !receipt.payload || !receipt.signature) return fail("expected { payload, signature }");
+  const p = receipt.payload;
+
+  checks.schema_recognized = p.schema === RECEIPT_SCHEMA;
+  let sigOk = false;
+  try { sigOk = verifyReceipt(receipt); } catch (e) { sigOk = false; }
+  checks.signature_valid = sigOk;
+
+  let current = "";
+  try { current = signerPubkey(); } catch (e) { current = ""; }
+  checks.signer_is_current = !!current && p.issuer?.signer_pubkey === current;
+
+  const now = Date.now();
+  checks.not_expired = !!p.expires_at && Date.parse(p.expires_at) > now;
+  checks.issued_in_past = !!p.issued_at && Date.parse(p.issued_at) <= now + 60000;
+
+  checks.payment_verified = p.evidence?.payment_verified === true;
+  checks.settlement_tx_present = typeof p.evidence?.settlement_tx === "string" && p.evidence.settlement_tx.length > 0;
+  checks.decision_present = typeof p.decision?.gate_decision === "string" && typeof p.decision?.risk_score === "number";
+  checks.result_hash_present = typeof p.decision?.risk_result_hash === "string";
+
+  // optional: caller supplies the report to prove it was not altered
+  if (req.query.report_json) {
+    try {
+      const recomputed = sha256(canonical(JSON.parse(String(req.query.report_json))));
+      checks.report_matches_hash = recomputed === p.decision?.risk_result_hash;
+    } catch (e) { checks.report_matches_hash = "unparseable report_json"; }
+  }
+
+  const valid = Object.values(checks).every(v => v === true);
+  res.json({
+    valid,
+    checks,
+    receipt_id: p.receipt_id,
+    settlement_tx: p.evidence?.settlement_tx ?? null,
+    verify_settlement_at: p.evidence?.settlement_tx ? "https://solscan.io/tx/" + p.evidence.settlement_tx : null,
+    note: "signature_valid proves the payload is unaltered and signed by the published key. Settlement should also be confirmed independently on-chain via the link above.",
+  });
+});
+
 app.get("/health", (_req, res) => {
   res.json({ status: "live", service: "SURVIVOR Pay-Per-Call Risk Agent", version: "1.0.0" });
 });
