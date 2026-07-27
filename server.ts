@@ -24,6 +24,13 @@ const x402 = new X402PaymentHandler({
   defaultDescription: "SURVIVOR risk screen (signed receipt)",
 });
 
+/** v2 clients look for PAYMENT-REQUIRED (base64 JSON). The server lib is
+ *  framework-agnostic and only returns a body, so we set the header here. */
+function send402(res: any, body: any) {
+  res.setHeader("PAYMENT-REQUIRED", Buffer.from(JSON.stringify(body), "utf8").toString("base64"));
+  return res.status(402).json(body);
+}
+
 const ROUTE = {
   amount: PRICE_BASE_UNITS,
   asset: USDC,
@@ -55,7 +62,7 @@ app.post("/risk-screen", async (req, res) => {
   const paymentHeader = x402.extractPayment(req.headers as any);
   if (!paymentHeader) {
     const r = x402.create402Response(requirements, resourceUrl);
-    return res.status(r.status).json(r.body);
+    return send402(res, r.body);
   }
 
   // 1. VERIFY (no funds move yet)
@@ -63,7 +70,7 @@ app.post("/risk-screen", async (req, res) => {
   if (!verified.isValid) {
     console.log(`[risk-screen] payment invalid: ${verified.invalidReason}`);
     const r = x402.create402Response(requirements, resourceUrl);
-    return res.status(402).json({ ...r.body, invalidReason: verified.invalidReason });
+    return send402(res, { ...r.body, invalidReason: verified.invalidReason });
   }
 
   // 2. DO THE WORK before charging — a failure here must not cost the caller
