@@ -26,9 +26,47 @@ const x402 = new X402PaymentHandler({
 
 /** v2 clients look for PAYMENT-REQUIRED (base64 JSON). The server lib is
  *  framework-agnostic and only returns a body, so we set the header here. */
+/** Bazaar discovery declaration — facilitator catalogs this at settle time.
+ *  Shape mirrors @x402/extensions buildBazaarExtensionFromDiscoveryInfo(). */
+const BAZAAR_EXTENSION = {
+  info: {
+    input: {
+      type: "http",
+      method: "POST",
+      bodyType: "json",
+      body: { mint: "So11111111111111111111111111111111111111112" },
+      pathParams: {},
+    },
+    output: {
+      type: "json",
+      example: {
+        mint: "So11111111111111111111111111111111111111112",
+        risk_score: 85,
+        risk_level: "LOW",
+        gate_decision: "ALLOW",
+        warnings: ["MEGACAP_TOKEN"],
+        token_name: "Wrapped SOL",
+        token_symbol: "SOL",
+        ai_summary: "",
+        receipt: { payload: {}, signature: "" },
+      },
+    },
+  },
+  schema: {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: { input: { type: "object" }, output: { type: "object" } },
+    required: ["input"],
+  },
+};
+
 function send402(res: any, body: any) {
-  res.setHeader("PAYMENT-REQUIRED", Buffer.from(JSON.stringify(body), "utf8").toString("base64"));
-  return res.status(402).json(body);
+  const withDiscovery = {
+    ...body,
+    extensions: { ...(body.extensions || {}), bazaar: BAZAAR_EXTENSION },
+  };
+  res.setHeader("PAYMENT-REQUIRED", Buffer.from(JSON.stringify(withDiscovery), "utf8").toString("base64"));
+  return res.status(402).json(withDiscovery);
 }
 
 const ROUTE = {
