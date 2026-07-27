@@ -12,6 +12,7 @@ const PRICE_USDC = 0.01;
 const AGENT_USDC_WALLET = "4aet1MhW5gbf46dqzrQB1qxGjM3Q3hN7ndKPRrntW5vg";
 const USDC = { address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", decimals: 6 };
 const FACILITATOR = process.env.FACILITATOR_URL || "https://facilitator.payai.network";
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || "";
 const PRICE_BASE_UNITS = String(Math.round(PRICE_USDC * 10 ** USDC.decimals));
 
 const x402 = new X402PaymentHandler({
@@ -41,7 +42,7 @@ app.post("/risk-screen", async (req, res) => {
   const { mint } = req.body || {};
   if (!mint) return res.status(400).json({ error: "mint is required" });
 
-  const resourceUrl = `${req.protocol}://${req.get("host")}/risk-screen`;
+  const resourceUrl = `${PUBLIC_BASE_URL || "https://" + req.get("host")}/risk-screen`;
   let requirements;
   try {
     requirements = await x402.createPaymentRequirements(ROUTE, resourceUrl);
