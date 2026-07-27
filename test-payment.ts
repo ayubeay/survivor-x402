@@ -131,7 +131,7 @@ async function main() {
   gate("10b payload signer matches /signer", payload?.issuer?.signer_pubkey === signerDoc.signer_pubkey);
 
   // ---- GATE 11: evidence completeness ----
-  const need = ["settlement_tx", "amount_base_units", "asset", "network", "settled_at", "facilitator"];
+  const need = ["settlement_tx", "payer", "amount_base_units", "asset", "network", "facilitator"];
   const missing = need.filter(k => ev?.[k] === undefined || ev?.[k] === null);
   gate("11 evidence complete", missing.length === 0, missing.length ? "missing: " + missing.join(",") : "all fields");
   gate("11b risk_result_hash present", !!payload?.decision?.risk_result_hash);
