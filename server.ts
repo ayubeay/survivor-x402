@@ -159,6 +159,11 @@ app.get("/health", (_req, res) => {
 });
 
 // Main risk screen endpoint
+// Alias: catalogued as a separate Bazaar resource. The facilitator appears to
+// record a listing once per resource URL and not refresh it, so a new path is
+// currently the only way to publish corrected discovery metadata.
+app.post("/screen", (req, res, next) => { (req as any).url = "/risk-screen"; next("route"); });
+
 app.post("/risk-screen", async (req, res) => {
   const { mint } = req.body || {};
   if (!mint) return res.status(400).json({ error: "mint is required" });
