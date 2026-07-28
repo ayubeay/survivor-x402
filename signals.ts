@@ -26,7 +26,7 @@ export function mapSignals(raw: any): Record<string, Signal> {
     const u = UNK("SIGNALS_UNAVAILABLE");
     return {
       mint_authority: u, freeze_authority: u, lp: u,
-      holder_concentration: u, dev_activity: u, token_age: u, liquidity: u,
+      holder_concentration: u, dev_activity: u, market_history: u, liquidity: u,
     };
   }
 
@@ -54,8 +54,21 @@ export function mapSignals(raw: any): Record<string, Signal> {
         })
       : UNK("DEV_ACTIVITY_UNAVAILABLE")),
 
-    token_age: megacap ? NA(mnote!) : (typeof s.age_hours === "number" ? OK({ hours: s.age_hours }) : UNK()),
+    market_history: megacap ? NA(mnote!) : (typeof s.age_hours === "number"
+      ? OK({
+          earliest_observed_pair_age_hours: s.age_hours,
+          source: s.market_data_source ?? "DexScreener",
+          pairs_observed: s.pair_count ?? null,
+        })
+      : UNK()),
 
-    liquidity: megacap ? NA(mnote!) : (typeof s.liquidity_usd === "number" ? OK({ usd: s.liquidity_usd }) : UNK()),
+    liquidity: megacap ? NA(mnote!) : (typeof s.liquidity_usd === "number"
+      ? OK({
+          usd: s.liquidity_usd,
+          pool: s.liquidity_pool ?? null,
+          observed_total_usd_across_pools: s.observed_total_liquidity_usd ?? null,
+          pools_observed: s.pair_count ?? null,
+        })
+      : UNK()),
   };
 }
