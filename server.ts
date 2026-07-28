@@ -3,6 +3,7 @@ import * as dotenv from "dotenv";
 import { runRiskScreen } from "./risk-engine";
 import { signReceiptV2, signerPubkey, verifyReceipt, canonical, sha256, RECEIPT_SCHEMA, POLICY_VERSION } from "./receipt";
 import { X402PaymentHandler } from "x402-solana/server";
+import { mapSignals } from "./signals";
 dotenv.config();
 
 const app = express();
@@ -60,14 +61,57 @@ const BAZAAR_EXTENSION = {
   },
 };
 
-function send402(res: any, body: any) {
+function send402(res: any, body: any, ext: any = BAZAAR_EXTENSION) {
   const withDiscovery = {
     ...body,
-    extensions: { ...(body.extensions || {}), bazaar: BAZAAR_EXTENSION },
+    extensions: { ...(body.extensions || {}), bazaar: ext },
   };
   res.setHeader("PAYMENT-REQUIRED", Buffer.from(JSON.stringify(withDiscovery), "utf8").toString("base64"));
   return res.status(402).json(withDiscovery);
 }
+
+const PRICE_REPORT_USDC = 0.03;
+const PRICE_REPORT_BASE_UNITS = String(Math.round(PRICE_REPORT_USDC * 10 ** USDC.decimals));
+
+const ROUTE_REPORT = {
+  amount: PRICE_REPORT_BASE_UNITS,
+  asset: USDC,
+  description: "SURVIVOR forensic report",
+  mimeType: "application/json",
+  maxTimeoutSeconds: 120,
+};
+
+const BAZAAR_EXTENSION_REPORT = {
+  info: {
+    input: { type: "http", method: "POST", bodyType: "json", body: { mint: "So11111111111111111111111111111111111111112" }, pathParams: {} },
+    output: {
+      type: "json",
+      example: {
+        mint: "So11111111111111111111111111111111111111112",
+        decision: { risk_score: 85, risk_level: "LOW", gate_decision: "ALLOW", confidence: 0.9, scoring_version: "0.4.1" },
+        reasons: [{ code: "MEGACAP_TOKEN", severity: "low", signal: "onchain", detail: "", contribution: 0.3 }],
+        signals: {
+          mint_authority: { status: "known", value: { revoked: true } },
+          freeze_authority: { status: "known", value: { revoked: true } },
+          lp: { status: "known", value: { locked: true, percent_locked: 100, lock_duration_days: 30 } },
+          holder_concentration: { status: "unknown", value: null, note: "HOLDER_QUERY_FAILED" },
+          dev_activity: { status: "unknown", value: null, note: "DEV_ACTIVITY_UNAVAILABLE" },
+          token_age: { status: "known", value: { hours: 31464 } },
+          liquidity: { status: "known", value: { usd: 122651.76 } },
+        },
+        token: { name: "Wrapped SOL", symbol: "SOL" },
+        ai_summary: "",
+        receipt: { payload: {}, signature: "" },
+      },
+    },
+  },
+  schema: {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: { input: { type: "object" }, output: { type: "object" } },
+    required: ["input"],
+  },
+};
 
 const ROUTE = {
   amount: PRICE_BASE_UNITS,
@@ -93,6 +137,7 @@ app.get("/", (req, res) => {
       "GET /health": "liveness",
       "GET /quote/:mint": "free preview — score only, no receipt, no payment",
       "POST /risk-screen": "paid — returns full report + signed receipt (x402 v2)",
+      "POST /report": "paid (0.03 USDC) — decision plus three-state evidence signals + signed receipt",
       "GET /signer": "public signing identity for receipt verification",
       "POST /verify": "verify any survivor.receipt.v2 — no auth, no payment",
     },
@@ -226,6 +271,82 @@ app.post("/risk-screen", async (req, res) => {
 
   console.log(`[risk-screen] SETTLED mint=${mint} receipt=${receipt.payload.receipt_id}`);
   return res.json({ ...risk, receipt, powered_by: ["SURVIVOR Oracle", "Ace Data Cloud"] });
+});
+
+// Forensic tier: decision plus the evidence behind it, three-state signals
+app.post("/report", async (req, res) => {
+  const { mint } = req.body || {};
+  if (!mint) return res.status(400).json({ error: "mint is required" });
+
+  const reqPath = (req as any).originalUrl?.split("?")[0] || req.path || "/report";
+  const resourceUrl = `${PUBLIC_BASE_URL || "https://" + req.get("host")}${reqPath}`;
+
+  let requirements;
+  try {
+    requirements = await x402.createPaymentRequirements(ROUTE_REPORT, resourceUrl);
+  } catch (e: any) {
+    console.error("[x402] report requirements failed:", e.message);
+    return res.status(503).json({ error: "PAYMENT_SETUP_UNAVAILABLE" });
+  }
+
+  const paymentHeader = x402.extractPayment(req.headers as any);
+  if (!paymentHeader) {
+    const r = x402.create402Response(requirements, resourceUrl);
+    return send402(res, r.body, BAZAAR_EXTENSION_REPORT);
+  }
+
+  const verified = await x402.verifyPayment(paymentHeader, requirements);
+  if (!verified.isValid) {
+    const r = x402.create402Response(requirements, resourceUrl);
+    return send402(res, { ...r.body, invalidReason: verified.invalidReason }, BAZAAR_EXTENSION_REPORT);
+  }
+
+  let risk;
+  try {
+    risk = await runRiskScreen(mint);
+  } catch (err: any) {
+    console.error("[report] scoring failed, not settling:", err.message);
+    return res.status(500).json({ error: "Risk analysis failed", detail: err.message, charged: false });
+  }
+
+  const settled = await x402.settlePayment(paymentHeader, requirements);
+  if (!settled.success) {
+    console.error(`[report] settlement failed: ${settled.errorReason}`);
+    return res.status(402).json({ error: "SETTLEMENT_FAILED", reason: settled.errorReason });
+  }
+
+  // normalized report payload — this is what risk_result_hash covers
+  const report = {
+    mint,
+    decision: {
+      risk_score: risk.risk_score,
+      risk_level: risk.risk_level,
+      gate_decision: risk.gate_decision,
+      confidence: risk.confidence,
+      scoring_version: risk.scoring_version ?? null,
+    },
+    reasons: risk.reasons,
+    signals: mapSignals(risk.raw_score_data),
+    token: { name: risk.token_name ?? null, symbol: risk.token_symbol ?? null },
+    ai_summary: risk.ai_summary,
+  };
+
+  const receipt = signReceiptV2({
+    mint,
+    network: x402.getNetwork(),
+    riskResult: report,
+    evidence: {
+      settlement_tx: (settled as any).transaction ?? null,
+      payer: (settled as any).payer ?? null,
+      amount_base_units: PRICE_REPORT_BASE_UNITS,
+      asset: USDC.address,
+      network: x402.getNetwork(),
+      facilitator: FACILITATOR,
+    },
+  });
+
+  console.log(`[report] SETTLED mint=${mint} receipt=${receipt.payload.receipt_id}`);
+  return res.json({ ...report, receipt, powered_by: ["SURVIVOR Oracle", "Ace Data Cloud"] });
 });
 
 // Public signer identity so receipts verify without out-of-band key exchange
