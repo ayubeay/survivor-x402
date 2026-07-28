@@ -9,6 +9,9 @@ export interface Signal {
   status: SignalStatus;
   value: any;
   note?: string;
+  measurement?: string;
+  limitations?: string[];
+  impact?: { weight: number; direction: "positive" | "negative"; reason: string };
 }
 
 const NA = (note: string): Signal => ({ status: "not_applicable", value: null, note });
@@ -43,7 +46,16 @@ export function mapSignals(raw: any): Record<string, Signal> {
 
     holder_concentration: megacap ? NA(mnote!) : (
       typeof s.top10_holder_percent === "number"
-        ? OK({ top10_percent: s.top10_holder_percent, total_holders: s.total_holders ?? null })
+        ? {
+            status: "known",
+            value: { top10_percent: s.top10_holder_percent, accounts_sampled: s.total_holders ?? null },
+            measurement: "largest_token_accounts",
+            limitations: [
+              "counts token accounts, not beneficial owners",
+              "program-owned pools, staking vaults and exchange custody are included",
+              "sampled from the largest accounts returned by the RPC, not the full holder set",
+            ],
+          }
         : UNK(s.holder_note || "HOLDER_DATA_UNAVAILABLE")),
 
     dev_activity: megacap ? NA(mnote!) : (s.dev_activity
