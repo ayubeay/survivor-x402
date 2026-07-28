@@ -72,7 +72,7 @@ function send402(res: any, body: any) {
 const ROUTE = {
   amount: PRICE_BASE_UNITS,
   asset: USDC,
-  description: "SURVIVOR risk screen",
+  description: "Solana token risk screen with signed proof. Returns score 0-100, risk level, ALLOW/CHALLENGE/DENY gate decision, structured warnings, and an ed25519-signed receipt binding the payment settlement and result hash - independently verifiable at /verify without trusting us.",
   mimeType: "application/json",
   maxTimeoutSeconds: 120,
 };
