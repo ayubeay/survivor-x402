@@ -159,6 +159,7 @@ async function main() {
   } catch { console.log("could not read post-balance"); }
 
   fs.writeFileSync("/tmp/receipt.json", JSON.stringify(body.receipt, null, 2));
+  fs.writeFileSync("/tmp/full-response.json", JSON.stringify(body, null, 2));
   console.log("\nreceipt written to /tmp/receipt.json");
   console.log(JSON.stringify(body.receipt, null, 2));
   summary();
