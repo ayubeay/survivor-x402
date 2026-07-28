@@ -1,7 +1,7 @@
 # Issue draft: PayAI Bazaar catalog behaviour
 
 **File at:** PayAI repo or facilitator support channel
-**Title:** Catalog entries appear write-once per resource URL
+**Title:** Catalog entry refresh latency - description updates took over 15 hours to propagate
 
 ## Observed
 A resource is catalogued on first settlement carrying the bazaar extension. Subsequent
@@ -16,13 +16,20 @@ Timeline (UTC, 2026-07-27/28):
 - 01:55 still unchanged after ~2.4 hours
 - 00:42 the same payload on a NEW path /screen catalogued immediately with the new text
 
+## Correction (2026-07-28 21:xx UTC)
+The entry DID eventually refresh. /risk-screen updated at 15:06:49 and now carries the
+new description. So this is refresh latency, not write-once behaviour: the entry did not
+update across two settlements over ~2.4 hours, but had updated by ~15 hours later.
+
 ## Consequence
-The description shipped at first cataloging is what agents see permanently. A seller who
-launches with placeholder copy cannot correct it on that URL.
+A seller who corrects a description cannot tell whether the change took effect, and may
+create duplicate resources (as we did with /screen) working around a delay rather than a
+permanent constraint.
 
 ## Question
-Is write-once intended, or should a later settlement refresh an existing entry? If
-intended, is there a seller-facing way to update or remove a stale listing?
+What is the expected refresh interval for an existing catalog entry, and is it driven by
+settlements, a background job, or something else? Is there a way for a seller to see
+whether a pending description change has been picked up?
 
 ## Related observation
 In the same catalog query, one listed service returned no HTTP response to a direct
