@@ -2,11 +2,22 @@ import axios from "axios";
 import * as dotenv from "dotenv";
 dotenv.config();
 
+export interface RiskReason {
+  code: string;
+  severity?: string;
+  signal?: string;
+  detail?: string;
+  contribution?: number;
+}
+
 export interface RiskResult {
   mint: string;
   risk_score: number;
   risk_level: string;
   gate_decision: string;
+  confidence: number | null;
+  reasons: RiskReason[];
+  scoring_version?: string;
   warnings: string[];
   token_name?: string;
   token_symbol?: string;
@@ -30,6 +41,9 @@ export async function runRiskScreen(mint: string): Promise<RiskResult> {
       risk_score: 15,
       risk_level: "HIGH",
       gate_decision: "DENY",
+      confidence: null,
+      reasons: [{ code: "FRESH_TOKEN_DATA_UNAVAILABLE", severity: "high", signal: "availability",
+                  detail: "Token could not be scored; insufficient on-chain data." }],
       warnings: ["FRESH_TOKEN_DATA_UNAVAILABLE"],
       token_name: undefined,
       token_symbol: undefined,
@@ -78,10 +92,19 @@ Start with the token name, score, and classification. End with a direct trading 
     risk_score: score.score,
     risk_level: score.risk_tier || score.riskLevel,
     gate_decision: score.score >= 65 ? "ALLOW" : score.score >= 40 ? "CHALLENGE" : "DENY",
-    warnings: (score.reasons || []).map((r: any) => r.code || r),
+    confidence: typeof score.confidence === "number" ? score.confidence : null,
+    reasons: (score.reasons || []).map((r: any) => ({
+      code: r.code ?? String(r),
+      severity: r.severity,
+      signal: r.signal,
+      detail: r.detail,
+      contribution: r.contribution,
+    })),
+    scoring_version: score.meta?.scoring_version,
+    warnings: (score.reasons || []).map((r: any) => r.code || r),   // retained for compatibility
     token_name: score.name,
     token_symbol: score.symbol,
     ai_summary,
-    raw_score_data: score,
+    raw_score_data: (() => { const { _tokenData, ...safe } = score || {}; return safe; })(),
   };
 }

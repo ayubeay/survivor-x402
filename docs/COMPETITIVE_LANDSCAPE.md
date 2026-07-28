@@ -16,8 +16,11 @@ declared inputSchema. Spend: 0.185 USDC (two never settled).
 
 ## Findings
 
-**The Bazaar has no liveness check.** A dead service (Solidus) and two wrong-chain
-services remain listed. Discovery by catalog needs a probe before trust.
+**Catalog presence did not imply availability in this observation.** One listed
+service (Solidus) returned no HTTP response to a direct probe, and two others
+analyze a different chain than their payment network. Whether the catalog performs
+any liveness checking was not inspected. Consumers may benefit from a lightweight
+availability probe before relying on catalog presence alone.
 
 **FINNPUTER signs but the signature is unverifiable.** Present: a 64-byte base58
 signature. Absent: any signer pubkey, declared algorithm, or verification endpoint.
