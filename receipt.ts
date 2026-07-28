@@ -49,6 +49,8 @@ const AGENT_PDA = "GTZNpoUacZrZU1PZfbzyyy34m1WizvUwE5aMfLXAf5hx";
 
 /** Deterministic JSON: sorted keys, no insignificant whitespace (RFC 8785 style). */
 export function canonical(v: any): string {
+  if (v === undefined) return "null";   // JSON.stringify drops undefined keys on the wire;
+                                        // treating it as null keeps signer and verifier in step
   if (v === null || typeof v !== "object") return JSON.stringify(v);
   if (Array.isArray(v)) return "[" + v.map(canonical).join(",") + "]";
   return "{" + Object.keys(v).sort()
@@ -85,9 +87,17 @@ export function signReceiptV2(args: {
   mint: string;
   network: string;
   riskResult: any;
+  riskScore?: number;
+  gateDecision?: string;
   evidence: SettlementEvidence;
   ttlSeconds?: number;
 }) {
+  const score = args.riskScore ?? args.riskResult?.risk_score;
+  const decision = args.gateDecision ?? args.riskResult?.gate_decision;
+  if (typeof score !== "number" || typeof decision !== "string") {
+    // refuse to sign a receipt asserting fields we do not have
+    throw new Error(`signReceiptV2: refusing to sign — risk_score=${score} gate_decision=${decision}`);
+  }
   const kp = loadSigningKey();
   const now = Date.now();
   const ttl = (args.ttlSeconds ?? 3600) * 1000;
@@ -101,8 +111,8 @@ export function signReceiptV2(args: {
     issuer: { agent_pda: AGENT_PDA, signer_pubkey: bs58.encode(Buffer.from(kp.publicKey)) },
     request: { mint: args.mint, network: args.network },
     decision: {
-      risk_score: args.riskResult.risk_score,
-      gate_decision: args.riskResult.gate_decision,
+      risk_score: score,
+      gate_decision: decision,
       policy_version: POLICY_VERSION,
       risk_result_hash: sha256(canonical(args.riskResult)),
     },

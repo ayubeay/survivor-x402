@@ -335,6 +335,8 @@ app.post("/report", async (req, res) => {
     mint,
     network: x402.getNetwork(),
     riskResult: report,
+    riskScore: report.decision.risk_score,
+    gateDecision: report.decision.gate_decision,
     evidence: {
       settlement_tx: (settled as any).transaction ?? null,
       payer: (settled as any).payer ?? null,
