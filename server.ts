@@ -168,7 +168,8 @@ app.post("/risk-screen", async (req, res) => {
   const { mint } = req.body || {};
   if (!mint) return res.status(400).json({ error: "mint is required" });
 
-  const resourceUrl = `${PUBLIC_BASE_URL || "https://" + req.get("host")}/risk-screen`;
+  const reqPath = (req as any).originalUrl?.split("?")[0] || req.path || "/risk-screen";
+  const resourceUrl = `${PUBLIC_BASE_URL || "https://" + req.get("host")}${reqPath}`;
   let requirements;
   try {
     requirements = await x402.createPaymentRequirements(ROUTE, resourceUrl);
