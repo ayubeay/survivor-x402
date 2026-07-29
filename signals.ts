@@ -48,12 +48,16 @@ export function mapSignals(raw: any): Record<string, Signal> {
       typeof s.top10_holder_percent === "number"
         ? {
             status: "known",
-            value: { top10_percent: s.top10_holder_percent, accounts_sampled: s.total_holders ?? null },
-            measurement: "largest_token_accounts",
+            value: {
+              top10_percent: s.top10_holder_percent,
+              denominator: s.concentration_basis?.denominator ?? "total_supply",
+              accounts_sampled: s.concentration_basis?.accounts_sampled ?? s.total_holders ?? null,
+            },
+            measurement: "top_10_token_accounts_over_total_supply",
             limitations: [
               "counts token accounts, not beneficial owners",
               "program-owned pools, staking vaults and exchange custody are included",
-              "sampled from the largest accounts returned by the RPC, not the full holder set",
+              "denominator is total supply, which includes burned and locked tokens",
             ],
           }
         : UNK(s.holder_note || "HOLDER_DATA_UNAVAILABLE")),
