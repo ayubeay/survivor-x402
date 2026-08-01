@@ -36,8 +36,28 @@ export function mapSignals(raw: any): Record<string, Signal> {
   const bool = (v: any, key: string): Signal =>
     megacap ? NA(mnote!) : (v === true || v === false ? OK({ revoked: v }) : UNK());
 
+  /* Layer 1 authority classification: what the mint address proves, and what it does not */
+  const authorityClass = (): Signal => {
+    const c = s.mint_authority_class;
+    if (!c || !c.state) return bool(s.mint_authority_revoked, "mint");
+    if (c.state === "UNRESOLVED" || c.state === "ON_CURVE_OTHER")
+      return { status: "unknown", value: null, note: c.state, measurement: "mint_authority_curve_and_owner" };
+    const value: any = { state: c.state, authority: c.authority ?? null };
+    if (c.state === "MULTISIG") {
+      value.threshold = c.threshold_m + "-of-" + c.signers_n;
+      value.signers = c.signers ?? null;
+    }
+    return {
+      status: "known",
+      value,
+      measurement: "mint_authority_curve_and_owner",
+      note: c.evidence,
+      limitations: c.limitation ? [c.limitation] : undefined,
+    };
+  };
+
   return {
-    mint_authority: bool(s.mint_authority_revoked, "mint"),
+    mint_authority: megacap && !s.mint_authority_class ? NA(mnote!) : authorityClass(),
     freeze_authority: bool(s.freeze_authority_revoked, "freeze"),
 
     lp: megacap ? NA(mnote!) : (s.lp
