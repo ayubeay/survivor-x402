@@ -27,13 +27,10 @@ create duplicate resources (as we did with /screen) working around a delay rathe
 permanent constraint.
 
 ## Question
-What is the expected refresh interval for an existing catalog entry, and is it driven by
-settlements, a background job, or something else? Is there a way for a seller to see
-whether a pending description change has been picked up?
+Is there a way for a seller to confirm that a metadata update has been picked up for
+processing, before it becomes visible in the catalog? Even a known refresh interval would
+not tell us whether a particular change had entered the pipeline.
 
-## Related observation
-In the same catalog query, one listed service returned no HTTP response to a direct
-probe, and two others required parameters for a different chain than their payment
-network. Whether the catalog performs liveness checking was not inspected.
+Secondary: is refresh driven by settlements, a background job, or something else?
 
 Writeup: https://github.com/ayubeay/survivor-x402/blob/main/docs/BAZAAR_WRITE_ONCE_FINDING.md
