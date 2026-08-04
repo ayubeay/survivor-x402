@@ -17,9 +17,8 @@ Hi - I'm the seller who filed the extensions propagation issue last week
 controlled experiment land as a regression test was a good outcome.
 
 Some context on where it came from. I run SURVIVOR, a token risk service that agents
-pay per call before executing a swap. The full x402 v2 loop works end to end on Solana:
-an agent
-with no prior knowledge of us queries the Bazaar, finds the service by capability, reads
+pay per call before executing a swap. The full x402 v2 loop works end to end on Solana: an
+agent with no prior knowledge of us queries the Bazaar, finds the service by capability, reads
 its schemas from the catalog, pays 0.01 USDC through a standard client, gets a decision,
 and independently verifies the signed receipt - no documentation, no patched tooling.
 That cold-discovery path is what surfaced the extensions gap in the first place.
