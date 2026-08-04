@@ -36,7 +36,7 @@ Two things from the build that might be worth comparing notes on:
   property for agent wallets.
 
 One more observation filed separately, about catalog refresh latency for existing
-entries: [BAZAAR ISSUE LINK]
+entries: https://github.com/PayAINetwork/x402-solana/issues/48
 
 What I would most like to talk about is where x402 is heading around discovery and
 verifiable execution. The interesting property to me is not the payment - it is that a
@@ -51,7 +51,7 @@ https://github.com/ayubeay/survivor-x402
 ---
 
 ## Notes before sending
-- Replace [BAZAAR ISSUE LINK] with the real URL after filing.
+- Bazaar issue filed as #48 on 2026-08-04.
 - Do not re-litigate the extensions issue. It is closed; the mention is context, not a claim.
 - Keep observational language throughout - "in our testing", not "the catalog is".
 - If they respond, the conversation is architecture and direction, not support.
