@@ -17,7 +17,8 @@ Hi - I'm the seller who filed the extensions propagation issue last week
 controlled experiment land as a regression test was a good outcome.
 
 Some context on where it came from. I run SURVIVOR, a token risk service that agents
-pay per call before executing a swap. The full x402 v2 loop works end to end: an agent
+pay per call before executing a swap. The full x402 v2 loop works end to end on Solana:
+an agent
 with no prior knowledge of us queries the Bazaar, finds the service by capability, reads
 its schemas from the catalog, pays 0.01 USDC through a standard client, gets a decision,
 and independently verifies the signed receipt - no documentation, no patched tooling.
@@ -55,3 +56,7 @@ https://github.com/ayubeay/survivor-x402
 - Do not re-litigate the extensions issue. It is closed; the mention is context, not a claim.
 - Keep observational language throughout - "in our testing", not "the catalog is".
 - If they respond, the conversation is architecture and direction, not support.
+
+- Accuracy note: the end-to-end claim is Solana only. A Base rail exists in the codebase
+  but its facilitator is unreachable and it does not currently emit a payable protocol
+  challenge. Do not imply Base works.
